@@ -27,6 +27,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    #aws
+    'storages',
+
     # 패키지
     'rest_framework',
     'corsheaders', # 배포
@@ -35,6 +38,7 @@ INSTALLED_APPS = [
     # 앱
     'users',
     'market',
+    'join',
 ]
 
 MIDDLEWARE = [
