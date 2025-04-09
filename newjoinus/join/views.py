@@ -10,6 +10,8 @@ from rest_framework import generics
 from market.models import Purchase
 from django.http import FileResponse
 from django.core.files.storage import default_storage
+from django.http import HttpResponse
+from django.views import View
 
 #튜토리얼 뷰
 class TutorialView(APIView):
@@ -192,31 +194,32 @@ class ImageDownloadView(APIView):
 class ImageShareView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, image_id):
+    def post(self, request): #image_id
         try:
-            card_post = CardPost.objects.get(id=image_id, author=request.user)
+            card_post = CardPost.objects.get(author=request.user) # id=image_id, 
             serializer = ImageShareSerializer(data=request.data)
 
-            # Instagram 스토리 링크 생성 / 여기서 발급받은 포인트는 completed/에 쌓인다.
-            image_url = request.build_absolute_uri(card_post.image.url)
-            # 인스타그램 스토리 URL 스킴 생성 (Android용 intent URL) *iOS의 경우, instagram://story 스킴을 사용
-            instagram_share_url = f"https://www.instagram.com/create/story?background_image_url={image_url}"
-            
+            # Instagram 앱 실행만을 위한 스킴 URL (이미지 없이)
+            instagram_scheme_url = "instagram://story-camera"
+
             if serializer.is_valid():
                 share = serializer.save(card_post=card_post)
-                # 포인트 지급 (공유 시에만)
+
+                # 포인트 지급
                 request.user.points += share.point
                 request.user.save()
 
                 return Response({
                     "message": "포인트 지급완료",
-                    "instagram_share_url": instagram_share_url  # 공유 링크 포함
+                    "instagram_share_url": instagram_scheme_url
                 }, status=status.HTTP_201_CREATED)
-            
+
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except CardPost.DoesNotExist:
-            return Response({"message": "해당 이미지가 존재하지 않거나 권한이 없습니다."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({
+                "message": "해당 이미지가 존재하지 않거나 권한이 없습니다."
+            }, status=status.HTTP_404_NOT_FOUND)
         
 # 키워드 정렬 >> 데이터베이스에 저장된 CardPost 객체들을 목록 형태로 보여줌. *인증된 사용자만 조회가능*
 class PostListAPIView(generics.ListAPIView):
@@ -289,3 +292,31 @@ class JoinView(APIView):
         return Response({
             "month_links": month_links
         })
+
+# URL스킴 웹페이지내에서 링크이동 가능한지 테스트용 코드    
+# class InstagramRedirectTestView(View):
+#     def get(self, request):
+#         html = """
+#         <!DOCTYPE html>
+#         <html>
+#         <head>
+#           <meta charset="utf-8">
+#           <title>Instagram 앱으로 이동 중...</title>
+#           <script>
+#             window.onload = function() {
+#               // 앱 딥링크 시도
+#               window.location = "instagram://story-camera";
+
+#               // 앱이 없는 경우 fallback
+#               setTimeout(() => {
+#                 window.location = "https://www.instagram.com";
+#               }, 2000);
+#             };
+#           </script>
+#         </head>
+#         <body>
+#           <p>Instagram 앱을 여는 중입니다...</p>
+#         </body>
+#         </html>
+#         """
+#         return HttpResponse(html)
